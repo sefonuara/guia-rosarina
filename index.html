@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0c0c0e" />
+<title>Rosario te espera</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: #0c0c0e; }
+  #root {
+    min-height: 100vh;
+    background: #0c0c0e;
+    color: #ececec;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px 40px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #141416;
+    border: 1px solid #232326;
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    margin-bottom: 12px;
+    transition: border-color .3s;
+  }
+  .card.current { border-color: #d8c8a8; background: #17161a; }
+  .card.done { opacity: .55; }
+  .primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    background: #d8c8a8;
+    color: #111;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .primary:disabled { opacity: .3; }
+  .primary:active:not(:disabled) { transform: scale(.98); }
+  .chip {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 0;
+    border-radius: 10px;
+    border: 1px solid #2c2c30;
+    background: transparent;
+    color: #8b8b92;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .chipOn { background: #d8c8a8; color: #111; border-color: #d8c8a8; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<script>
+const { useState, useEffect, createElement: h } = React;
+
+const PLACES = [
+  { name: "Kettu Café", extra: false },
+  { name: "Teatro El Círculo", extra: false },
+  { name: "Peatonal Córdoba", extra: false },
+  { name: "Plaza 25 de Mayo", extra: false },
+  { name: "Museo Municipal de Artes Visuales Sor Josefa Díaz y Clucellas", extra: false },
+  { name: "Monumento a la Bandera y Pasaje Juramento", extra: false },
+  { name: "El Aura", extra: false },
+  { name: "Ex Aduana", extra: false },
+  { name: "Parque España", extra: false },
+  { name: "Rio Mío", extra: false },
+  { name: "Boulevard Oroño", extra: true },
+  { name: "Parque Independencia", extra: true },
+  { name: "Harde", extra: false },
+];
+
+const scramble = (name) =>
+  name.replace(/[^\s]/g, () => "abcdefghilmnorstu"[Math.floor(Math.random() * 17)]);
+const SCRAMBLED = PLACES.map((p) => scramble(p.name));
+
+const KEY = "ruta-secreta-v1";
+const load = () => {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+  catch { return {}; }
+};
+
+const styles = {
+  header: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "10px 4px 12px" },
+  eyebrow: { fontSize: 12, letterSpacing: "0.25em", color: "#d8c8a8", fontWeight: 600 },
+  progress: { fontSize: 13, color: "#6d6d74", fontVariantNumeric: "tabular-nums" },
+  track: { height: 3, background: "#1e1e22", borderRadius: 2, marginBottom: 24, overflow: "hidden" },
+  trackFill: { height: "100%", background: "#d8c8a8", transition: "width .4s ease" },
+  introWrap: { textAlign: "center", paddingTop: "18vh" },
+  introMark: { fontSize: 34, color: "#d8c8a8", marginBottom: 20 },
+  introTitle: { fontSize: 34, lineHeight: 1.15, margin: "0 0 14px", fontWeight: 700, letterSpacing: "-0.02em" },
+  introSub: { color: "#8b8b92", fontSize: 15, lineHeight: 1.5, margin: "0 auto 32px", maxWidth: 300 },
+  cardTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  num: { fontSize: 12, color: "#6d6d74", letterSpacing: "0.1em", fontVariantNumeric: "tabular-nums" },
+  extraTag: { color: "#d8c8a8", letterSpacing: "0.05em" },
+  score: { fontSize: 13, color: "#d8c8a8", fontWeight: 600 },
+  lock: { fontSize: 14, color: "#3a3a40" },
+  name: { fontSize: 17, fontWeight: 600, lineHeight: 1.35 },
+  currentName: { fontSize: 20, color: "#fff" },
+  blurred: { filter: "blur(7px)", userSelect: "none", WebkitUserSelect: "none", color: "#55555c", fontWeight: 500 },
+  rateBox: { marginTop: 16 },
+  rateLabel: { fontSize: 13, color: "#8b8b92", marginBottom: 10 },
+  rateRow: { display: "flex", gap: 5, marginBottom: 14 },
+  doneCard: { textAlign: "center", padding: "28px 16px", marginBottom: 16, background: "#17161a", border: "1px solid #d8c8a8", borderRadius: 18 },
+  doneMark: { fontSize: 28, color: "#d8c8a8", marginBottom: 10 },
+  doneTitle: { fontSize: 22, fontWeight: 700, marginBottom: 6 },
+  doneSub: { fontSize: 14, color: "#8b8b92" },
+};
+
+function App() {
+  const [state, setState] = useState(load); // { started: bool, ratings: {i: n} }
+  const [rating, setRating] = useState(0);
+
+  useEffect(() => {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+  }, [state]);
+
+  const started = !!state.started;
+  const ratings = state.ratings || {};
+  const completedCount = Object.keys(ratings).length;
+  const current = completedCount;
+  const finished = completedCount >= PLACES.length;
+
+  const confirm = () => {
+    if (!rating) return;
+    setState({ ...state, ratings: { ...ratings, [current]: rating } });
+    setRating(0);
+  };
+
+  const avg = completedCount > 0
+    ? (Object.values(ratings).reduce((a, b) => a + b, 0) / completedCount).toFixed(1)
+    : null;
+
+  return h("div", null,
+    h("header", { style: styles.header },
+      h("div", { style: styles.eyebrow }, "RUTA SECRETA"),
+      h("div", { style: styles.progress }, completedCount + " / " + PLACES.length)
+    ),
+    h("div", { style: styles.track },
+      h("div", { style: { ...styles.trackFill, width: (completedCount / PLACES.length) * 100 + "%" } })
+    ),
+    !started
+      ? h("div", { style: styles.introWrap },
+          h("div", { style: styles.introMark }, "✳"),
+          h("h1", { style: styles.introTitle }, "Rosario", h("br"), "te espera."),
+          h("p", { style: styles.introSub },
+            "Los destinos se revelan de a uno. Completá cada lugar y puntualo para descubrir el siguiente."),
+          h("button", { className: "primary", onClick: () => setState({ ...state, started: true }) }, "Comenzar")
+        )
+      : h("main", null,
+          finished && h("div", { style: styles.doneCard },
+            h("div", { style: styles.doneMark }, "✳"),
+            h("div", { style: styles.doneTitle }, "Ruta completada"),
+            h("div", { style: styles.doneSub }, "Puntaje promedio: " + avg + " / 10")
+          ),
+          PLACES.map((place, i) => {
+            const isDone = ratings[i] !== undefined;
+            const isCurrent = !finished && i === current;
+            const isHidden = !isDone && !isCurrent;
+            return h("div", {
+              key: i,
+              className: "card" + (isCurrent ? " current" : "") + (isDone ? " done" : "")
+            },
+              h("div", { style: styles.cardTop },
+                h("span", { style: styles.num },
+                  String(i + 1).padStart(2, "0"),
+                  place.extra && !isHidden ? h("span", { style: styles.extraTag }, " · extra") : null
+                ),
+                isDone ? h("span", { style: styles.score }, ratings[i] + "/10") : null,
+                isHidden ? h("span", { style: styles.lock }, "◌") : null
+              ),
+              h("div", {
+                style: {
+                  ...styles.name,
+                  ...(isHidden ? styles.blurred : {}),
+                  ...(isCurrent ? styles.currentName : {})
+                }
+              }, isHidden ? SCRAMBLED[i] : place.name),
+              isCurrent && h("div", { style: styles.rateBox },
+                h("div", { style: styles.rateLabel }, "¿Cómo estuvo? Puntualo para revelar el próximo"),
+                h("div", { style: styles.rateRow },
+                  Array.from({ length: 10 }, (_, n) => n + 1).map((n) =>
+                    h("button", {
+                      key: n,
+                      className: "chip" + (rating === n ? " chipOn" : ""),
+                      onClick: () => setRating(n)
+                    }, n)
+                  )
+                ),
+                h("button", { className: "primary", disabled: !rating, onClick: confirm }, "Completar destino")
+              )
+            );
+          })
+        )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script>
+</body>
+</html>
